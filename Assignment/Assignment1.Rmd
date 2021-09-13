@@ -1,0 +1,73 @@
+---
+title: "R Notebook"
+output:
+  pdf_document: default
+---
+setwd("C:/Users/User/AppData/Local/Temp/RtmpeK020J/downloaded_packages")
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+rmarkdown::render(input = "Assignment1.Rmd",
+                  output_format = "pdf_document",
+                  output_file = "Assignment1.pdf")
+                  
+devtools::install_version("rmarkdown", version = "1.8", repos = "http://cran.us.r-project.org")
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error= TRUE)
+```
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+
+```{r}
+
+#setting the working directory
+setwd("/Users/User/Dropbox/PC/Desktop/Deepak/Machine Learning/Assignments")
+getwd()
+#reading the drug200.csv data
+drug_data <- read.csv("drug200.csv")
+drug_data
+
+```
+```{r}
+#statistics from the data
+summary(drug_data)
+```
+```{r}
+#structure of Data
+str(drug_data)
+```
+```{r}
+#plotting the drug field
+plot(drug_data$Age)
+```
+```{r}
+plot(drug_data$Age,drug_data$Na_to_K)
+```
+```{r}
+boxplot(drug_data$Age,drug_data$Na_to_K)
+```
+```{r}
+barplot(drug_data$Age,drug_data$Na_to_K,xlab="Age",ylab="Na to K")
+```
+
+```{r}
+#transforming: Converting the values of Na_to_k to nearest integers using floor function and storing it as new column into the data
+Na_to_k <- drug_data$Na_to_K
+typeof(Na_to_k)
+Sodium_to_potassium=floor(Na_to_k)
+drug_data$sodium_to_potassium = Sodium_to_potassium
+#plotting the transformed data field
+plot(drug_data$sodium_to_potassium)
+drug_data
+```
