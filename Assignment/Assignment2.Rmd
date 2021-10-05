@@ -9,39 +9,18 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
 ## 1. Inserting Data and Libraries
 
 # Reading the UniversalBank csv file and inserting approproate libraries
 
 ```{r}
 
-rm(list=ls())
 library(class)
 library(caret)
 library(ISLR)
 library(dummies)
-library(tidyr)
 library(dplyr)
+library(tidyr)
 library(ggplot2)
 
 UBank_data <- read.csv("UniversalBank.csv")
@@ -52,7 +31,7 @@ UBank_data <- read.csv("UniversalBank.csv")
 
 # Removing the ID and Zipcode columns from the Bank_data dataset
 # Converting Education column into factor and creating a dummy database of Bank_data
-#Moving personal.loan column to the first column position
+# Moving personal.loan column to the first column position
 
 ```{r}
 
@@ -65,24 +44,20 @@ library(dplyr)
 library(ggplot2)
 
 UBank_data$Education = as.factor(UBank_data$Education)
-
-
+UBank_data$Personal.Loan = as.factor(UBank_data$Personal.Loan)
 UBank_data_d = dummy.data.frame(select(UBank_data, -c(ZIP.Code,ID)))
 
-UBank_data_d$Mortgage = as.factor(UBank_data_d$Mortgage)
-UBank_data_d$Income = as.factor(UBank_data_d$Income)
+n <- which(colnames(UBank_data_d)=="Personal.Loan1")
+Personal.Loan <- UBank_data_d$Personal.Loan1
+UBank_data_d <- cbind(Personal.Loan, UBank_data_d[, -n])
+UBank_data_d <- UBank_data_d[,-11]
 
-
-n <- which(colnames(UBank_data_d)=="Personal.Loan")
-Personal.Loan <- UBank_data_d$Personal.Loan
-UBank_data_d <- cbind(Personal.Loan, UBank_data_d[,-n])
 head(UBank_data_d)
-
-UBank_data_d
 
 ```
 
 ## 3. Data Partition
+
 # Partitioning the UniversalBank dataset into Training and validation sets
 
 ```{r}
@@ -100,66 +75,87 @@ summary(Validation)
 
 ```
 
-## 4. Solving Q1 using given constraints
+## 4. Q1. Classifying customer using given constraints
 
-#Creating Test data from Q1 in Assignment
+# Creating Test data from Q1 in Assignment
 # Normalizing the Training Data
 # Applying KNN Model with k=1
 
 ```{r}
 
-# Copying original data
+# copying data
+
 Train_norm <- Train
 Validation_norm <- Validation
 UBD_norm <- UBank_data_d
-Test1 <- data.frame(40, 10, 84, 2, 2, 0, 1, 0, 0, 0, 0, 1, 1)
 
-norm_values <- preProcess(Train_norm[,2:14], method = c("center", "scale"))
-Train_norm[,2:14] <- predict(norm_values, Train_norm[,2:14])
-Validation_norm[,2:14] <- predict(norm_values, Validation_norm[,2:14])
+#Creating test data from the question
+
+Test1 <- data.frame(Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education1 = 0, Education2 = 1, Education3 = 0, Mortgage = 0, Securities.Account = 0, CD.Account = 0, Online = 1, CreditCard = 1)
+
+#Normalizing the data
+
+Test_norm1 <- Test1
+
+norm_values <- preProcess(Train, method = c("center", "scale"))
+Train_norm <- predict(norm_values, Train)
+Validation_norm <- predict(norm_values, Validation)
+UBD_norm <- predict(norm_values, UBank_data_d)
+
+#combine normalized values of train and validation and then preprocess and normalize test data#############
 
 summary(Train_norm)
-var(Train_norm[,2:14])
+var(Train_norm)
 summary(Validation_norm)
-var(Validation_norm[,2:14])
+var(Validation_norm)
 
-Q1_KNN <- knn(Train_norm[,2:14], Test1, cl = Train_norm[,1], k=1, prob = 0.5)
-Q1_KNN
+# Applying KNN Model on test data
+
+Q1_KNN <- knn(train = Train_norm[,-10], test = Test1, cl = Train[,1], k=1, prob = 0.5)
+Q1.attributes<- attributes(Q1_KNN)
 row.names(Train_norm)[attr(Q1_KNN, "Q1_KNN.index")]
+Q1.attributes[1]
+Q1.attributes[3]
 
 ```
+## 5. Training the KNN Model
 
-# Training the KNN Model using the train() function along with preProcess
 # Combining training and validation datasets and renormalizing data
 # Expanding search grid to appropriate K value to gain highest possible accuracy
 
 ```{r}
 
 set.seed(123)
-Model <- train(Personal.Loan~Income+Mortgage, data =UBD_norm, method = "knn")
-UBD_norm_Train <- predict(UBank_data_norm, Train)
-UBD_norm_Validation <- predict(UBank_data_norm, Validation)
-
-summary(UBD_norm_Train)
-Summary(UBD_norm_Validation)
+Search_grid <- expand.grid(k=c(2,3,5,7,14))
+Model <- train(Personal.Loan~Income+Mortgage, data =UBD_norm, method = "knn", tuneGrid=Search_grid, preProcess='range')
+head(Model)
 
 ```
 
-## 6. Finding the best value of K
+## 7. Q3. Creating Confusion Matrix
 
 ```{r}
 
-accuracy.df <- data.frame(k = seq(1, 14, 1), accuracy = rep(0, 14))
-for(i in 1:14) {
-                  knn <- knn(Train_norm, Validation_norm, cl = Train$Personal.Loan, k = i)
-                  accuracy[i, 2] <- confusionMatrix(knn, Validation$Personal.Loan)$overall[1] 
-                }
-accuracy.df
-which.max( (accuracy.df$accuracy) )
+Train_Predictors <- Train_norm
+Test_Predictors <- Validation
+
+Train_labels <-Train_norm[,1]
+Test_labels  <-Validation_norm[,1]
+
+Predicted_Test_labels <- knn(Train_Predictors, Test_Predictors, cl=Train_labels, k=1, prob = TRUE)
+library(gmodels)
+CrossTable(x=Test_labels, y=Predicted_Test_labels, prop.chisq = FALSE)
 
 ```
 
-# Repartitioning data into 5:3:2
+## 8. Q4. Classifying customer using best K
+
+```{r}
+Q4_KNN <- knn(Train_norm[,2:14], Test1, cl = Train[,1], k=3, prob = TRUE)
+head(Q4_KNN)
+```
+
+## 9. Q5. Repartitioning data into 5:3:2
 
 ```{r}
 
@@ -173,74 +169,63 @@ Validation.test <- UBank_data_d[-Index_Train2,]
 Index_Validation <- createDataPartition(Validation.test$Personal.Loan, p=0.6, list = FALSE)
 # 30% of total or 60% of remaining data is taken as Validation Data
 Validation2 <- Validation.test[Index_Validation,]
-Test2 <- Validation.test[-Index_Train2,]
+Test2 <- Validation.test[-Index_Validation,]
 
-summary(Train2)
-summary(Validation2)
-summary(Test2)
-
-```
-
-# Creating Confusion Matrix
-
-```{r}
-
-Train_Predictors <- Train_norm[,2:14]
-Test_Predictors <- Validation[,2:14]
-
-Train_labels <-Train_norm[,1]
-Test_labels  <-Validation_norm[,1]
-
-Predicted_Test_labels <- knn(Train_Predictors, Test_Predictors, cl=Train_labels, k=1, prob = TRUE)
-library(gmodels)
-CrossTable(x=Test_labels,y=Predicted_Test_labels, prop.chisq = FALSE)
+knn12 <- knn(train=Train2, test=Train2,cl=Train2[,1], k=3 ,prob=TRUE)
+head(knn12)
 
 ```
-# Normalizing the data
+
+## 10. Normalizing the data
 
 ```{r}
-
 Train_norm2 <- Train2
 Validation_norm2 <- Validation2
+Test_norm2 <- Test2
 
-norm_values2 <- preProcess(Train_norm2[,2:14], method = c("center", "scale"))
-Train_norm2[,2:14] <- predict(norm_values2, Train_norm2[,2:14])
-Validation_norm2[,2:14] <- predict(norm_values2, Validation_norm2[,2:14])
+norm_values2 <- preProcess(Train2, method = c("center", "scale"))
+Train_norm2 <- predict(norm_values2, Train2)
+Validation_norm2 <- predict(norm_values2, Validation2)
 
 summary(Train_norm2)
-var(Train_norm2[,2:14])
+var(Train_norm2)
 summary(Validation_norm2)
-var(Validation_norm2[,2:14])
+var(Validation_norm2)
 
 ```
 
-# Combining Train2 and Validation2 datasets to renormalize and apply to Test2 Dataset
+## 11. Combining Train2 and Validation2 datasets to renormalize
+
+# Re-normalizing the combined data
 
 ```{r}
 
 ForTest_norm2 <- rbind.data.frame(Train_norm2, Validation_norm2, deparse.level = 1, make.row.names = T, stringsAsFactors = F, factor.exclude = T)
-ForTest_norm2
+
+norm_values3 <- preProcess(ForTest_norm2, method = c("center", "scale"))
+Test_norm2 <- predict(norm_values3, ForTest_norm2)
+
+head(Test_norm2)
+var(Test_norm2)
 
 ```
 
-#Re-normalizing the combined data
+## 12. Applying KNN Method with the best K
 
 ```{r}
 
-norm_values3 <- preProcess(ForTest_norm2[,2:14], method = c("center", "scale"))
-Test_norm2[,2:14] <- predict(norm_values3, ForTest_norm2[,2:14])
-
-summary(Test_norm2)
-var(Test_norm2[,2:14])
+Q5_KNN <- knn(Train_norm2, Validation_norm2, cl = Train2[,1], k=3, prob = TRUE)
+head(Q5_KNN)
+row.names(Train_norm2)[attr(Q5_KNN, "Q5_KNN.index")]
 
 ```
 
-# Creating Confusion Matrix 2
+## 13. Creating Confusion Matrix 2
 
 ```{r}
 
-Train_Predictors <- Train_norm2[,2:14]
-Test_Predictors <- Validation2[,2:14]
+Train_Predictors <- Train_norm2
+Test_Predictors <- Validation_norm2
 
 Train_labels2 <-Train_norm2[,1]
 Test_labels2  <-Validation_norm2[,1]
@@ -248,25 +233,17 @@ Test_labels2  <-Validation_norm2[,1]
 Predicted_Test_labels2 <- knn(Train_Predictors, Test_Predictors, cl=Train_labels2, k=1, prob = TRUE)
 library(gmodels)
 CrossTable(x=Test_labels2, y=Predicted_Test_labels2, prop.chisq = FALSE)
+class_prob<-attr(Predicted_Test_labels, 'prob')
+head(class_prob)
 
 ```
 
-# Applying KNN Method with the best K
+## 14. Creating Confusion Matrix 3
 
 ```{r}
 
-Q5_KNN <- knn(Train_norm2[,2:14], Test2[,2:14], cl = Train_norm2[,1], k=3, prob = TRUE)
-Q5_KNN
-row.names(Train_norm2)[attr(Q5_KNN, "Q5_KNN.index")]
-
-```
-
-# Creating Confusion Matrix 3
-
-```{r}
-
-Train_Predictors <- ForTest_norm2[,2:14]
-Test_Predictors <- Test_norm2[,2:14]
+Train_Predictors <- ForTest_norm2
+Test_Predictors <- Test_norm2
 
 Train_labels3 <-ForTest_norm2[,1]
 Test_labels3  <-Test_norm2[,1]
@@ -274,6 +251,8 @@ Test_labels3  <-Test_norm2[,1]
 Predicted_Test_labels3 <- knn(Train_Predictors, Test_Predictors, cl=Train_labels3, k=1, prob = TRUE)
 library(gmodels)
 CrossTable(x=Test_labels3, y=Predicted_Test_labels3, prop.chisq = FALSE)
+class_prob<-attr(Predicted_Test_labels3, 'prob')
+head(class_prob)
 
 ```
 
