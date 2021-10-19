@@ -186,3 +186,4 @@ df[Validation$Personal.Loan == 1 & Validation$CreditCard == 1 & Validation$Onlin
 
 ```
 
+# The value obtained using the model is higher compared to the value obtained through mathematical calculation from question E.
