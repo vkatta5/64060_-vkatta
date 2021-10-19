@@ -1,0 +1,188 @@
+---
+title: "Assignment_3"
+author: "Vamshee Deepak Goud Katta"
+date: "10/17/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+# 1. Inserting Data and Libraries
+
+
+## Reading the UniversalBank csv file and inserting approproate libraries
+
+```{r}
+
+library(class)
+library(caret)
+library(ISLR)
+library(dummies)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+UBank_data <- read.csv("UniversalBank.csv")
+
+```
+
+
+
+# 2. Data Selection
+
+```{r}
+
+UBank_data_d <- dummy.data.frame(select(UBank_data, c(Personal.Loan, CreditCard, Online)))
+head(UBank_data_d)
+
+```
+
+
+
+# 3. Data Partition
+
+
+## Partitioning the UniversalBank dataset into Training and validation sets
+
+```{r}
+
+set.seed(123)
+Index_Train <- createDataPartition(UBank_data_d$Personal.Loan, p=0.6, list = FALSE) 
+# 60% of data is taken as Training Data
+
+Train <- UBank_data_d[Index_Train,]
+Validation <- UBank_data_d[-Index_Train,] 
+# Rest of the data is taken as Validation Data
+
+summary(Train)
+summary(Validation)
+
+```
+
+
+# 4.  A. Creating Pivot table using Online, CC and Loan variables
+
+```{r}
+
+library(reshape2)
+names(Train)
+dcast(Train, Personal.Loan + CreditCard ~ Online)
+
+```
+
+
+
+# 5.  B. Naive Bayes Classification for customer with CC=1, Online=1, Personal.Loan=1
+    
+##         Total number of customers with CC=1 and Online=1 is 475+57 = 532
+##         Number of customers with all variables as 1 is 57
+##         Hence probability of customer taking personal loan is 57/532 = "0.1071"
+
+
+
+# 6.  C. Preparing separate pivot tables for Loan against Online and Loan against CC
+
+
+#     a) Loan v/s Online
+
+```{r}
+
+dcast(Train, Personal.Loan ~ Online)
+
+```
+
+
+#     b) Loan v/s CC
+
+```{r}
+
+dcast(Train, Personal.Loan ~ CreditCard)
+
+```
+
+# 7.   D. Computations of individual probabilities
+
+##     i.    P(CC = 1 | Loan = 1) (the proportion of credit card holders among the loan acceptors)
+##           Number of loan acceptors is 187+91 = 278
+##           Number of Acceptors using credit cards is 91
+##           Hence P(CC=1| Loan=1) = 91/278 = "0.3273"
+
+
+
+##     ii.   P(Online = 1 | Loan = 1)
+##           Number of loan acceptors is 99+179 = 278
+##           Number of acceptors with online presence is 179
+##           Hence P(Online = 1 | Loan = 1) = 179/278 = "0.6438"
+
+
+
+##     iii.  P(Loan = 1) (the proportion of loan acceptors)
+##           Total number of loan acceptors is 65+122+34+57 = 278
+##           Hence proportion of loan acceptors = total of loan acceptors/total of customers = 278/3000 = "0.0926"
+
+
+
+##     iv.   P(CC = 1 | Loan = 0)
+##           Number of loan rejectors is 1930+792 = 2722
+##           Number of rejectors with credit card is 792
+##           Hence P(CC = 1 | Loan = 0) = 792/2722 = "0.2909"
+
+
+
+##     v.    P(Online = 1 | Loan = 0)
+##           Number of loan rejectors is 1102+1620 = 2722
+##           Number of rejectors with online presence is 1620
+##           Hence P(Online = 1 | Loan = 0) = 1620/2722 = "0.5951"
+
+
+
+##     vi.   P(Loan = 0) (the proportion of loan rejectors)
+##           Total number of loan rejectors is 785+1145+317+475 = 2722
+##           Hence P(Loan = 0) = total of rejectors/total of customers = 2722/3000 = "0.9073"
+
+
+```{r}
+# 10. G. Modelling Naive Bayes on the Data set
+library(e1071)
+
+nb_model <-naiveBayes(Personal.Loan ~ CreditCard + Online , data = Train)
+nb_model
+
+```
+
+#  8.   E.  Naive Bayes probability P(Loan = 1 | CC = 1, Online = 1)
+
+##           = P(CC = 1 | Loan = 1) * P(Online = 1 | Loan = 1) * P(Loan = 1) / 
+##           [P(CC = 1 | Loan = 1) * P(Online = 1 | Loan = 1) * P(Loan = 1)] + [P(CC = 1 | Loan = 0) * P(Online = 1 | Loan = 0) * P(Loan = 0)]
+
+##           = 0.3273*0.6438*0.0926/(03273*0.6438*0.0926)+(0.2909*0.5951*0.9073)
+##           = 0.0195/(0.0195+0.1570)
+
+##           Hence P(Loan = 1 | CC = 1, Online = 1) = "0.1104"
+
+
+#  9.   F.  The value obtained through Naive Bayes is slightly higher compared to the value of 0.1071, obtained from the pivot table which is more accurate compared to the Naive Bayes value
+
+
+# 10.   G.  Using the model to find the entry corresponding to P(Loan = 1 | CC = 1, Online = 1)
+
+```{r}
+
+# Train
+pred.class <- predict(nb_model, newdata = Train)
+
+# validation
+pred.prob <- predict(nb_model, newdata=Validation, type="raw") # probabilities
+pred.class <- predict(nb_model, newdata = Validation) # class membership
+
+# For the test set
+df <- data.frame(actual = Validation$Personal.Loan, predicted = pred.class, pred.prob)
+
+df[Validation$Personal.Loan == 1 & Validation$CreditCard == 1 & Validation$Online == 1,]
+
+```
+
