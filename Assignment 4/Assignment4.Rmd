@@ -1,0 +1,152 @@
+---
+title: "Assignment - 4"
+author: "Vamshee Deepak Goud Katta"
+date: "11/2/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Pharmaceutical Industry - K-Means Clustering
+
+## A. Inserting and Cleaning Data
+
+```{r}
+
+library(tidyverse)
+library(factoextra)
+library(ISLR)
+library(flexclust)
+library(cowplot)
+set.seed(123)
+
+Pharma <- read.csv('Pharmaceuticals.csv')
+Pharma1 <- Pharma[,3:11]
+summary(Pharma1)
+
+```
+
+## Scaling the dataframe (Z-score) and finding the optimal number of clusters
+
+```{r, fig.width= 8}
+
+Pharma1 <- scale(Pharma1)
+distance <- get_dist(Pharma1)
+wss <- fviz_nbclust(Pharma1, kmeans, method = "wss")
+silhouette <- fviz_nbclust(Pharma1, kmeans, method = "silhouette")
+plot_grid(wss, silhouette)
+
+```
+
+### Clustering the data and plotting the clusters 
+
+```{r}
+
+k5 <- kmeans(Pharma1, centers = 5, nstart = 25)
+k5$centers
+k5$size
+k5$cluster[15]
+fviz_cluster(k5, data = Pharma1)
+
+```
+
+### Number of clusters is determined using the Average silhouette method. The optimum number of clusters formed using this method is 5.
+### The data is clustered using K-means clustering algorithm.
+
+```{r}
+
+aggregate(Pharma1,by=list(k5$cluster),FUN=mean)
+
+```
+
+### Assigning the cluster numbers to the companies
+
+```{r}
+
+Pharma2 <- data.frame(Pharma$Name, k5$cluster)
+Pharma2
+
+```
+
+##  B. Interpreting the clusters with respect to the numerical variables
+
+```{r, fig.width= 12}
+
+centers <- data.frame(k5$centers) %>% 
+rowid_to_column() %>% 
+gather('Columns', 'Centers', -1)
+ggplot(centers, aes(x = Columns, y = Centers, color = as.factor(rowid))) + 
+geom_line(aes(group = as.factor(rowid))) + geom_point() + 
+labs(color = "Cluster", title = 'Interpretation of Clusters') +
+theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1))
+
+```
+
+### Based on the above analysis, the formed clusters can be interpreted as follows;
+
+Cluster-1: The companies in cluster 1 have high Revenue Growth but very low Asset Turnover. They have moderate Beta, Leverage, Net Profit Margin and low Market Cap, ROA and ROE.
+
+Cluster-2: The companies in cluster 2 have high Beta and Leverage but very low Net Profit Margin and ROA. They fare moderately in PE Ration but have less than moderate Asset Turnover, Market Cap, Revenue Growth and ROE.
+
+Cluster-3: The companies in cluster 3 have the highest PE Ration but incur the least Net Profit Margin. They fare moderately in Revenue Growth and Leverage but have low Market Cap, ROA and ROE.
+
+Cluster-4: The companies in cluster 4 have high Market Cap, Asset Turnover, ROA and ROE. They fare over moderate values in Net Profit Margin and Revenue Growth and less than moderate in Beta, Leverage and PE Ratio.
+
+Cluster-5: The companies in cluster 5 fare moderately in Asset Turnover, Leverage, Market Cap, PE Ration and ROE. They have less than moderate Beta and Revenue Growth but fare over the moderate values in Net Profit Margin, ROA and ROE.
+
+
+## C. Plotting the clusters w.r.t. the variables not used in the data 
+
+```{r}
+
+(Recommendations <-  Pharma %>%
+  select(c("Median_Recommendation","Location","Exchange")) %>% 
+  mutate(cluster = k5$cluster) %>%
+  arrange(desc(cluster)))
+
+```
+
+### Plotting Median Recommendation v/s Clusters
+
+```{r}
+
+ggplot(Recommendations, aes(fill = Median_Recommendation, x = as.factor(cluster))) + 
+geom_bar(position = 'stack') + labs(x="Clusters", y="Companies",
+title = "Median Recommendation v/s Clusters")
+
+```
+Cluster 1 has mixed recommendations with high Hold and low Buy recommendations with moderate sell recommendation. Cluster 5 has moderate buy/sell recommendations.    Clusters 2, 3 and 4 have hold/moderate buy recommendations.
+
+### Plotting Location v/s Clusters
+
+```{r}
+
+ggplot(Recommendations, aes(fill = Location, x = as.factor(cluster))) + 
+geom_bar(position = 'stack') + labs(x="Clusters", y="Companies",
+title = "Location v/s Clusters")
+
+```
+
+All the clusters have companies from US. Cluster 5 has companies from France and Ireland. Cluster 3 has companies from Canada. Cluster 2 has companies from Germany. Clusters 1 and 4 have companies from UK. Cluster 1 also has companies from Switzerland.
+
+### Plotting Exchange v/s Clusters
+
+```{r}
+
+ggplot(Recommendations, aes(fill = Exchange, x = as.factor(cluster))) + 
+geom_bar(position = 'stack') + labs(x="Clusters", y="Companies",
+title = "Exchange v/s Clusters")
+
+```
+
+Clusters 1, 3, 4 and 5 have firms with stock exchange listed in NYSE. Cluster 2 has companies with stock exchange listed in AMEX, NASDAQ and NYSE.
+
+## D. Naming the clusters using variables in the dataset.
+
+### Cluster 1: High Hold/Sell Cluster
+### Cluster 2: High Hold/Buy Cluster
+### Cluster 3: Hold/Buy Cluster
+### Cluster 4: Hold/Buy Cluster
+### Cluster 5: Buy/Sell Cluster
