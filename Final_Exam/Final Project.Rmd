@@ -1,0 +1,153 @@
+---
+title: "Final Project"
+author: "Vamshee Deepak Goud Katta"
+date: "12/8/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, results='hide'}
+# Reading the input data
+library(tidyverse)
+library(factoextra)
+library(ISLR)
+library(flexclust)
+library(cowplot)
+library(GGally)
+set.seed(123)
+
+# Arranging the data in descending order of BustedAt value
+Gamble <- read.csv('bustabit.csv')
+head(Gamble)
+Gamble %>%
+    arrange(desc(BustedAt))
+head(Gamble)
+
+```
+
+```{r}
+# Deriving relevant features for clustering
+bustabit <- Gamble %>% 
+  mutate(CashedOut = ifelse(is.na(CashedOut), BustedAt + .01, CashedOut),
+         Profit = ifelse(is.na(Profit), 0, Profit),
+         Losses = ifelse(Profit == 0, -1*Bet, 0),
+         GameWon = ifelse(Profit == 0, 0, 1),
+         GameLost = ifelse(Profit == 0, 1, 0))
+
+# Look at the first five rows of the features data
+head(bustabit)
+
+```
+
+```{r}
+# Creating per-player statistics
+player <- bustabit %>%
+  group_by(Username) %>%
+  summarize(AverageCashedOut = mean(CashedOut), 
+            AverageBet = mean(Bet),
+            TotalProfit = sum(Profit),
+            TotalLosses = sum(Losses), 
+            GamesWon = sum(GameWon),
+            GamesLost = sum(GameLost))
+# Displaying the cleaned data
+head(player)
+
+```
+
+```{r}
+# Standardizing the data
+standard <- function(x) 
+  {z=(x-mean(x))/sd(x)}
+
+# Apply the function to each numeric variable in the clustering set
+standardized <- player %>%
+    mutate_if(is.numeric, standard)
+              
+# Summarize our standardized data
+summary(standardized)
+
+```
+
+```{r}
+
+set.seed(2021)
+
+# Cluster the players using k-means with five clusters
+cluster <- select(standardized,-Username)%>%
+                                          kmeans( centers = 5)
+
+# Store the cluster assignments back into the clustering data frame object
+player$cluster <- factor(cluster$cluster)
+
+# Look at the distribution of cluster assignments
+table(player$cluster)
+
+```
+```{r}
+
+# Group by the cluster assignment and calculate averages
+cluster_avg <- player %>%
+    group_by(cluster) %>%
+    summarize_if(is.numeric,mean)
+
+# View the resulting table
+cluster_avg
+
+```
+
+```{r}
+
+# Create the min-max scaling function
+deviation <- function(x) {
+    z=(x-min(x))/(max(x)-min(x))
+}
+
+# Apply this function to each numeric variable in the bustabit_clus_avg object
+bustabit_avg <- cluster_avg %>%
+    mutate_if(is.numeric, deviation)
+              
+# Create a parallel coordinate plot of the values
+ggparcoord(bustabit_avg, columns = c(2,3,4,5,6,7), 
+           groupColumn = "cluster", scale = "globalminmax", order = "skewness")
+
+```
+
+
+```{r}
+# Principal components
+components <- as.data.frame(prcomp(standardized[2:7])$x)
+
+# Store the cluster assignments in the new data frame
+components$cluster <- player$cluster
+
+# Use ggplot() to plot PC1 vs PC2, and color by the cluster assignment
+principle <- ggplot(components,aes(PC1,PC2,color=cluster))+
+      geom_point()
+
+# View the resulting plot
+principle
+
+```
+
+```{r}
+# Forming clusters dataframe with cluster names
+clusters <- c(
+    "Risky Commoners",
+    "High Rollers",
+    "Risk Takers",
+    "Cautious Commoners",
+    "Strategic Addicts"
+)
+
+# Append the cluster names to the cluster means table
+Named_clusters <- cluster_avg %>%
+    cbind(Name = clusters)
+
+# View the cluster means table with your appended cluster names
+Named_clusters
+
+```
